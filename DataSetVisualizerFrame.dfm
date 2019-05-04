@@ -49,6 +49,7 @@ object FrameDataSetVisualizer: TFrameDataSetVisualizer
     TabOrder = 2
   end
   object DataSourceOutput: TDataSource
+    DataSet = ClientDataSetOutput
     Left = 136
     Top = 136
   end

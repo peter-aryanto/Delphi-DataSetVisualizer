@@ -466,7 +466,7 @@ uses
   , ToolsAPI
 //  ,  Dialogs
   , Vcl.ComCtrls
-//  , Vcl.Grids
+  , Vcl.Grids
   , Vcl.DBGrids
   , Data.DB
   , Datasnap.Provider
@@ -484,11 +484,11 @@ type
   TFrameDataSetVisualizer = class(TFrame, IOTADebuggerVisualizerExternalViewerUpdater,
     IOTAThreadNotifier, IOTAThreadNotifier160)
     StringListView: TListView;
+    Memo1: TMemo;
     DBGridOutput: TDBGrid;
     DataSourceOutput: TDataSource;
-    DataSetProviderInput: TDataSetProvider;
     ClientDataSetOutput: TClientDataSet;
-    Memo1: TMemo;
+    DataSetProviderInput: TDataSetProvider;
     procedure StringListViewData(Sender: TObject; Item: TListItem);
   private
     FOwningForm: TCustomForm;
@@ -534,7 +534,10 @@ procedure Register;
 implementation
 
 uses
-  System.SysUtils, Actnlist, ImgList, Menus, IniFiles, DesignIntf;
+  System.SysUtils, Actnlist, ImgList, Menus, IniFiles, DesignIntf
+  , System.StrUtils
+  , System.TypInfo
+  ;
 
 {$R *.dfm}
 
@@ -550,15 +553,15 @@ resourcestring
 type
 
   // TODO: Try not to use this interface at all.
-  IFrameFormHelper = interface
-    ['{786451C2-C5EA-4F7A-8AC5-5D070B6E57C8}']
+  IDataSetVisualizerFrameFormHelper = interface
+    ['{E7EF12F0-7529-409C-80F9-C4A2531960CE}']
     function GetForm: TCustomForm;
     function GetFrame: TCustomFrame;
     procedure SetForm(Form: TCustomForm);
     procedure SetFrame(Form: TCustomFrame);
   end;
 
-  TStringListVisualizerForm = class(TInterfacedObject, INTACustomDockableForm, IFrameFormHelper)
+  TFormDataSetVisualizer = class(TInterfacedObject, INTACustomDockableForm, IDataSetVisualizerFrameFormHelper)
   private
     FMyFrame: TFrameDataSetVisualizer;
     FMyForm: TCustomForm;
@@ -580,14 +583,14 @@ type
     procedure SaveWindowState(Desktop: TCustomIniFile; const Section: string; IsProject: Boolean);
     function GetEditState: TEditState;
     function EditAction(Action: TEditAction): Boolean;
-    { IFrameFormHelper }
+    { IDataSetVisualizerFrameFormHelper }
     function GetForm: TCustomForm;
     function GetFrame: TCustomFrame;
     procedure SetForm(Form: TCustomForm);
     procedure SetFrame(Frame: TCustomFrame);
   end;
 
-  TDebuggerStringListVisualizer = class(TInterfacedObject, IOTADebuggerVisualizer,
+  TDataSetVisualizer = class(TInterfacedObject, IOTADebuggerVisualizer,
     IOTADebuggerVisualizerExternalViewer)
   public
     function GetSupportedTypeCount: Integer;
@@ -602,53 +605,59 @@ type
 
 { TDebuggerDateTimeVisualizer }
 
-function TDebuggerStringListVisualizer.GetMenuText: string;
+function TDataSetVisualizer.GetMenuText: string;
 begin
   Result := sMenuText;
 end;
 
-procedure TDebuggerStringListVisualizer.GetSupportedType(Index: Integer;
+procedure TDataSetVisualizer.GetSupportedType(Index: Integer;
   var TypeName: string; var AllDescendants: Boolean);
 begin
-  TypeName := 'TStrings';
+  TypeName := 'TDataSet';
   AllDescendants := True;
 end;
 
-function TDebuggerStringListVisualizer.GetSupportedTypeCount: Integer;
+function TDataSetVisualizer.GetSupportedTypeCount: Integer;
 begin
   Result := 1;
 end;
 
-function TDebuggerStringListVisualizer.GetVisualizerDescription: string;
+function TDataSetVisualizer.GetVisualizerDescription: string;
 begin
   Result := sStringListVisualizerDescription;
 end;
 
 // TODO: Make this return the same value as GetIdentifier and contain "Peter Aryanto".
-function TDebuggerStringListVisualizer.GetVisualizerIdentifier: string;
+function TDataSetVisualizer.GetVisualizerIdentifier: string;
 begin
-  Result := ClassName;
+//  Result := ClassName;
+  Result := 'DataSet Visualizer by Peter Aryanto';
 end;
 
-function TDebuggerStringListVisualizer.GetVisualizerName: string;
+function TDataSetVisualizer.GetVisualizerName: string;
 begin
   Result := sStringListVisualizerName;
 end;
 
-function TDebuggerStringListVisualizer.Show(const Expression, TypeName, EvalResult: string; SuggestedLeft, SuggestedTop: Integer): IOTADebuggerVisualizerExternalViewerUpdater;
+function TDataSetVisualizer.Show(const Expression, TypeName, EvalResult: string; SuggestedLeft, SuggestedTop: Integer): IOTADebuggerVisualizerExternalViewerUpdater;
 var
   AForm: TCustomForm;
   AFrame: TFrameDataSetVisualizer;
   VisDockForm: INTACustomDockableForm;
 begin
-  VisDockForm := TStringListVisualizerForm.Create(Expression) as INTACustomDockableForm;
+//  try
+  (BorlandIDEServices As IOTAMessageServices).AddTitleMessage('Hello World!');
+  VisDockForm := TFormDataSetVisualizer.Create(Expression) as INTACustomDockableForm;
   AForm := (BorlandIDEServices as INTAServices).CreateDockableForm(VisDockForm);
   AForm.Left := SuggestedLeft;
   AForm.Top := SuggestedTop;
-  (VisDockForm as IFrameFormHelper).SetForm(AForm);
-  AFrame := (VisDockForm as IFrameFormHelper).GetFrame as TFrameDataSetVisualizer;
+  (VisDockForm as IDataSetVisualizerFrameFormHelper).SetForm(AForm);
+  AFrame := (VisDockForm as IDataSetVisualizerFrameFormHelper).GetFrame as TFrameDataSetVisualizer;
   AFrame.AddStringListItems(Expression, TypeName, EvalResult);
   Result := AFrame as IOTADebuggerVisualizerExternalViewerUpdater;
+//  except
+    //
+//  end;
 end;
 
 
@@ -656,11 +665,52 @@ end;
 
 procedure TFrameDataSetVisualizer.AddStringListItems(const Expression, TypeName,
   EvalResult: string);
+
+  function GetString(const PropertyName: string): string;
+  var
+    TempStr: string;
+  begin
+//    // Integer returned from .Evaluate has single quotes at the start & end.
+//    TempStr := Evaluate('IntToStr(' + FExpression + '.' + PropertyName + ')');
+//    Result := StrToInt(StripSingleQuotePrefixAndSuffix(TempStr));
+    TempStr := Evaluate(FExpression + '.' + PropertyName);
+    Result := Copy(TempStr, 2, Length(TempStr) - 2);
+  end;
+
+  function GetInteger(const PropertyName: string): Integer;
+//  var
+//    TempStr: string;
+  begin
+//    // Integer returned from .Evaluate has single quotes at the start & end.
+//    TempStr := Evaluate('IntToStr(' + FExpression + '.' + PropertyName + ')');
+//    Result := StrToInt(StripSingleQuotePrefixAndSuffix(TempStr));
+    Result := StrToInt(Evaluate(FExpression + '.' + PropertyName));
+  end;
+
+  function GetBoolean(const PropertyName: string): Boolean;
+//  var
+//    TempStr: string;
+  begin
+//    TempStr := Evaluate('BoolToStr(' + FExpression + '.' + PropertyName +
+////      ', True)' {Returning 'True' of 'False'});
+//      ')');
+//    Result := StrToBool(StripSingleQuotePrefixAndSuffix(TempStr));
+    Result := StrToBool(Evaluate(FExpression + '.' + PropertyName));
+  end;
+
 var
   Delim, DelimText: string;
+  FieldCount: Integer;
+  FieldNo: Integer;
+  TempStr: string;
+
+DS: TDataSet;
+SL: TStrings;
+Field: TField;
 begin
   FAvailableState := asAvailable;
   FExpression := Expression;
+{
   if FItems = nil then
     FItems := TStringList.Create
   else
@@ -684,6 +734,39 @@ begin
     FAvailableState := asNotAvailable;
     StringListView.Invalidate;
   end;
+}
+  FieldCount := GetInteger('Fields.Count');
+  for FieldNo := 1 to FieldCount do
+  begin
+    ClientDataSetOutput.FieldDefs.Add(
+//      GetString('Fields[' + IntToStr(FieldNo - 1) + '].FieldName'),
+      Evaluate(FExpression + '.Fields[' + IntToStr(FieldNo - 1) + '].FieldName'),
+      TFieldType(GetEnumValue(
+        TypeInfo(TFieldType),
+        Evaluate(FExpression + '.Fields[' + IntToStr(FieldNo - 1) + '].DataType'))),
+      GetInteger('Fields[' + IntToStr(FieldNo - 1) + '].Size'));
+  end;
+  ClientDataSetOutput.CreateDataSet;
+
+  Evaluate(FExpression + '.First');
+  while not GetBoolean('Eof') do
+  begin
+    ClientDataSetOutput.Append;
+    for FieldNo := 1 to FieldCount do
+    begin
+      TempStr := TempStr + '-' +
+        Evaluate(FExpression + '.Fields[' + IntToStr(FieldNo - 1) + '].Value');
+{
+DataSet: -111-'AAA'-1.01-'5/05/2019'-'5/05/2019 1:41:14 PM'-222-'BBB'-2.02-'5/06/2019'-'5/06/2019 1:41:14 PM'
+}
+      ClientDataSetOutput.Fields[FieldNo - 1].Value :=
+        Evaluate(FExpression + '.Fields[' + IntToStr(FieldNo - 1) + '].Value');
+    end;
+    ClientDataSetOutput.Post;
+    Evaluate(FExpression + '.Next');
+  end;
+//  TempStr := Evaluate(FExpression + '.Eof');
+  Memo1.Text := FExpression + ': ' + TempStr;//+ Evaluate(FExpression);
 end;
 
 procedure TFrameDataSetVisualizer.AfterSave;
@@ -708,6 +791,22 @@ begin
 end;
 
 function TFrameDataSetVisualizer.Evaluate(Expression: string): string;
+
+  function StripSingleQuotePrefixAndSuffix(const SourceStr: string): string;
+  var
+    HasSingleQuotePrefixAndSuffix: Boolean;
+  begin
+    HasSingleQuotePrefixAndSuffix := (SourceStr[1] = '''')
+      and (SourceStr[Length(SourceStr)] = '''');
+
+    if HasSingleQuotePrefixAndSuffix then
+      Result := Copy(SourceStr, 2, Length(SourceStr) - 2)
+    else
+      Result := SourceStr;
+  end;
+
+const
+  SINGLE_QUOTE = '''';
 var
   CurProcess: IOTAProcess;
   CurThread: IOTAThread;
@@ -717,6 +816,14 @@ var
   ResultAddr, ResultSize, ResultVal: LongWord;
   EvalRes: TOTAEvaluateResult;
   DebugSvcs: IOTADebuggerServices;
+
+  DataSetProvider: TDatasetProvider;
+  DataSetPointer: ^TDataSet;
+  ClientDataSet: TClientDataSet;
+  MemoryStream: TMemoryStream;
+  MemoryTransfer: Integer;
+
+  IsEnclosedBySingleQuotes: Boolean;
 begin
   begin
     Result := '';
@@ -732,8 +839,31 @@ begin
           Done := True;
           EvalRes := CurThread.Evaluate(Expression, @ResultStr, Length(ResultStr),
             CanModify, eseAll, '', ResultAddr, ResultSize, ResultVal, '', 0);
+//          DataSetProvider := TDataSetProvider.Create(nil);
+//          DataSetPointer := Pointer(ResultAddr);
+//          DataSetProvider.DataSet := DataSetPointer^;
+//          ClientDataSet.Data := DataSetProvider.Data;
+//          DataSetProvider.Free;
+//            MemoryStream := TMemoryStream.Create;
           case EvalRes of
             erOK: Result := ResultStr;
+//            erOK: Result := IfThen(
+//              (ResultStr[1] = '''')
+//                and (ResultStr[Length(ResultStr)] = ''''),
+//              Copy(ResultStr, 2, Length(ResultStr) - 2),
+//              ResultStr);
+//            erOK: Result := DataSetPointer.ToString;//IntToStr(ClientDataSet.RecordCount);
+//            erOK:
+//              begin
+//                Result := ResultStr;
+//
+//                IsEnclosedBySingleQuotes := (Result[1] = '''')
+//                  and (Result[Length(Result)] = '''');
+//
+//                if IsEnclosedBySingleQuotes then
+//                  Result := Copy(Result, 2, Length(Result) - 2)
+//                else
+//              end;
             erDeferred:
               begin
                 FCompleted := False;
@@ -758,11 +888,14 @@ begin
                 Done := False;
               end;
           end;
+//          ClientDataSet.Free;
         end
         until Done = True;
       end;
     end;
   end;
+
+  Result := StripSingleQuotePrefixAndSuffix(Result);
 end;
 
 procedure TFrameDataSetVisualizer.EvaluteComplete(const ExprStr,
@@ -844,7 +977,11 @@ begin
   begin
     FreeAndNil(FItems);
     if Assigned(FClosedProc) then
-      FClosedProc;
+      try
+        FClosedProc;
+      except
+        //
+      end;
   end;
   inherited;
 end;
@@ -889,115 +1026,123 @@ begin
 
 end;
 
-{ TStringListVisualizerForm }
+{ TFormDataSetVisualizer }
 
-constructor TStringListVisualizerForm.Create(const Expression: string);
+constructor TFormDataSetVisualizer.Create(const Expression: string);
 begin
   inherited Create;
   FExpression := Expression;
 end;
 
-procedure TStringListVisualizerForm.CustomizePopupMenu(PopupMenu: TPopupMenu);
+procedure TFormDataSetVisualizer.CustomizePopupMenu(PopupMenu: TPopupMenu);
 begin
   // no toolbar
 end;
 
-procedure TStringListVisualizerForm.CustomizeToolBar(ToolBar: TToolBar);
+procedure TFormDataSetVisualizer.CustomizeToolBar(ToolBar: TToolBar);
 begin
 // no toolbar
 end;
 
-function TStringListVisualizerForm.EditAction(Action: TEditAction): Boolean;
+function TFormDataSetVisualizer.EditAction(Action: TEditAction): Boolean;
 begin
   Result := False;
 end;
 
-procedure TStringListVisualizerForm.FrameCreated(AFrame: TCustomFrame);
+procedure TFormDataSetVisualizer.FrameCreated(AFrame: TCustomFrame);
 begin
   FMyFrame :=  TFrameDataSetVisualizer(AFrame);
 end;
 
-function TStringListVisualizerForm.GetCaption: string;
+function TFormDataSetVisualizer.GetCaption: string;
 begin
   Result := Format(sFormCaption, [FExpression]);
 end;
 
-function TStringListVisualizerForm.GetEditState: TEditState;
+function TFormDataSetVisualizer.GetEditState: TEditState;
 begin
   Result := [];
 end;
 
-function TStringListVisualizerForm.GetForm: TCustomForm;
+function TFormDataSetVisualizer.GetForm: TCustomForm;
 begin
   Result := FMyForm;
 end;
 
-function TStringListVisualizerForm.GetFrame: TCustomFrame;
+function TFormDataSetVisualizer.GetFrame: TCustomFrame;
 begin
   Result := FMyFrame;
 end;
 
-function TStringListVisualizerForm.GetFrameClass: TCustomFrameClass;
+function TFormDataSetVisualizer.GetFrameClass: TCustomFrameClass;
 begin
   Result := TFrameDataSetVisualizer;
 end;
 
-function TStringListVisualizerForm.GetIdentifier: string;
+function TFormDataSetVisualizer.GetIdentifier: string;
 begin
-  Result := 'StringListDebugVisualizer';
+//  Result := 'StringListDebugVisualizer';
+  Result := 'DataSet Visualizer by Peter Aryanto';
 end;
 
-function TStringListVisualizerForm.GetMenuActionList: TCustomActionList;
-begin
-  Result := nil;
-end;
-
-function TStringListVisualizerForm.GetMenuImageList: TCustomImageList;
+function TFormDataSetVisualizer.GetMenuActionList: TCustomActionList;
 begin
   Result := nil;
 end;
 
-function TStringListVisualizerForm.GetToolbarActionList: TCustomActionList;
+function TFormDataSetVisualizer.GetMenuImageList: TCustomImageList;
 begin
   Result := nil;
 end;
 
-function TStringListVisualizerForm.GetToolbarImageList: TCustomImageList;
+function TFormDataSetVisualizer.GetToolbarActionList: TCustomActionList;
 begin
   Result := nil;
 end;
 
-procedure TStringListVisualizerForm.LoadWindowState(Desktop: TCustomIniFile;
+function TFormDataSetVisualizer.GetToolbarImageList: TCustomImageList;
+begin
+  Result := nil;
+end;
+
+procedure TFormDataSetVisualizer.LoadWindowState(Desktop: TCustomIniFile;
   const Section: string);
 begin
   //no desktop saving
 end;
 
-procedure TStringListVisualizerForm.SaveWindowState(Desktop: TCustomIniFile;
+procedure TFormDataSetVisualizer.SaveWindowState(Desktop: TCustomIniFile;
   const Section: string; IsProject: Boolean);
 begin
   //no desktop saving
 end;
 
-procedure TStringListVisualizerForm.SetForm(Form: TCustomForm);
+procedure TFormDataSetVisualizer.SetForm(Form: TCustomForm);
 begin
   FMyForm := Form;
   if Assigned(FMyFrame) then
     FMyFrame.SetForm(FMyForm);
 end;
 
-procedure TStringListVisualizerForm.SetFrame(Frame: TCustomFrame);
+procedure TFormDataSetVisualizer.SetFrame(Frame: TCustomFrame);
 begin
    FMyFrame := TFrameDataSetVisualizer(Frame);
 end;
 
 var
-  StringListVis: IOTADebuggerVisualizer;
+  DataSetVisualizer: IOTADebuggerVisualizer;
 
 procedure Register;
+var
+  DebuggerServices: IOTADebuggerServices;
 begin
-  StringListVis := TDebuggerStringListVisualizer.Create;
-  (BorlandIDEServices as IOTADebuggerServices).RegisterDebugVisualizer(StringListVis);
+//  DataSetVisualizer := TDataSetVisualizer.Create;
+//  (BorlandIDEServices as IOTADebuggerServices).RegisterDebugVisualizer(DataSetVisualizer);
+  if Supports(BorlandIDEServices, IOTADebuggerServices, DebuggerServices) then
+  begin
+    DataSetVisualizer := TDataSetVisualizer.Create;
+    DebuggerServices.RegisterDebugVisualizer(DataSetVisualizer);
+  end;
 end;
 
 procedure RemoveVisualizer;
@@ -1006,8 +1151,8 @@ var
 begin
   if Supports(BorlandIDEServices, IOTADebuggerServices, DebuggerServices) then
   begin
-    DebuggerServices.UnregisterDebugVisualizer(StringListVis);
-    StringListVis := nil;
+    DebuggerServices.UnregisterDebugVisualizer(DataSetVisualizer);
+    DataSetVisualizer := nil;
   end;
 end;
 
