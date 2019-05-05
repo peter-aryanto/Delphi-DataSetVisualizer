@@ -2,469 +2,10 @@ unit DataSetVisualizerFrame;
 
 
 interface
-(*
-uses
-//  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-//  Vcl.Graphics, Vcl.Controls,
-  DesignIntf,
-  Vcl.ComCtrls,
-  Vcl.Menus,
-  System.IniFiles,
-  Vcl.ImgList,
-  Vcl.ActnList,
-  ToolsAPI,
-  Vcl.Forms, Data.DB, System.Classes, Vcl.Controls, Vcl.Grids, Vcl.DBGrids,
-  Datasnap.Provider, Datasnap.DBClient, Vcl.StdCtrls
-  ;//, Vcl.Dialogs;
-
-type
-  TFrameDataSetVisualizer = class(TFrame,
-    IOTADebuggerVisualizerExternalViewerUpdater)
-    StringListView: TListView;
-    DBGridOutput: TDBGrid;
-    DataSourceOutput: TDataSource;
-    DataSetProviderInput: TDataSetProvider;
-    ClientDataSetOutput: TClientDataSet;
-    Memo1: TMemo;
-    procedure StringListViewData(Sender: TObject; Item: TListItem);
-  private
-    FIsAvailable: Boolean;
-//    function Evaluate(const Expression: string): TDataSet;
-    function Evaluate(const Expression: string): string;
-  public
-    procedure ShowDataSetOnGrid(const Expression: string);
-
-    // Start of IOTADebuggerVisualizerExternalViewerUpdater Implementation
-    procedure CloseVisualizer;
-    procedure MarkUnavailable(Reason: TOTAVisualizerUnavailableReason);
-    procedure RefreshVisualizer(const Expression, TypeName, EvalResult: string);
-    procedure SetClosedCallback(ClosedProc: TOTAVisualizerClosedProcedure);
-    // End of IOTADebuggerVisualizerExternalViewerUpdater Implementation
-{
-    class procedure CreateAndShow (
-      const Expression, TypeName, EvalResult: string;
-      SuggestedLeft, SuggestedTop: Integer);
-}
-  end;
-
-  TFormDataSetVisualizer = class(TInterfacedObject,
-    INTACustomDockableForm{, IFrameFormHelper})
-  private
-//    FForm: TCustomForm;
-    FFrame: TFrameDataSetVisualizer;
-    FExpression: string;
-  public const
-    IDENTIFIER = 'DataSet Visualizer by Peter Aryanto';
-  public
-    constructor Create(const Expression: string);
-    // Start of INTACustomDockableForm Implementation
-    function GetCaption: string;
-    function GetFrameClass: TCustomFrameClass;
-    procedure FrameCreated(AFrame: TCustomFrame);
-    function GetIdentifier: string;
-    function GetMenuActionList: TCustomActionList;
-    function GetMenuImageList: TCustomImageList;
-    procedure CustomizePopupMenu(PopupMenu: TPopupMenu);
-    function GetToolbarActionList: TCustomActionList;
-    function GetToolbarImageList: TCustomImageList;
-    procedure CustomizeToolBar(ToolBar: TToolBar);
-    procedure LoadWindowState(Desktop: TCustomIniFile; const Section: string);
-    procedure SaveWindowState(Desktop: TCustomIniFile; const Section: string; IsProject: Boolean);
-    function GetEditState: TEditState;
-    function EditAction(Action: TEditAction): Boolean;
-    // End of INTACustomDockableForm Implementation
-
-    { IFrameFormHelper }
-//    function GetForm: TCustomForm;
-//    function GetFrame: TCustomFrame;
-//    procedure SetForm(Form: TCustomForm);
-//    procedure SetFrame(Frame: TCustomFrame);
-
-    property Frame: TFrameDataSetVisualizer read FFrame;
-  end;
-
-procedure Register;
-
-implementation
-
-{$R *.dfm}
 
 uses
-    System.SysUtils
-  ;
-
-
-
-
-
-
-
-
-
-
-type
-  TDataSetVisualizer = class(TInterfacedObject,
-    IOTADebuggerVisualizer, IOTADebuggerVisualizerExternalViewer)
-  public
-    // Start of IOTADebuggerVisualizer Implementation
-    function GetSupportedTypeCount: Integer;
-    procedure GetSupportedType(
-      Index: Integer;
-      var TypeName: string;
-      var AllDescendants: Boolean);
-    function GetVisualizerIdentifier: string;
-    function GetVisualizerName: string;
-    function GetVisualizerDescription: string;
-    // End of IOTADebuggerVisualizer Implementation
-
-    // Start of IOTADebuggerVisualizerExternalViewer
-    function GetMenuText: string;
-    function Show(const Expression, TypeName, EvalResult: string;
-      SuggestedLeft, SuggestedTop: Integer
-    ): IOTADebuggerVisualizerExternalViewerUpdater;
-    // End of IOTADebuggerVisualizerExternalViewer
-  end;
-
-{ TDataSetVisualizer }
-
-function TDataSetVisualizer.GetSupportedTypeCount: Integer;
-begin
-  Result := 1;
-end;
-
-procedure TDataSetVisualizer.GetSupportedType(
-  Index: Integer;
-  var TypeName: string;
-  var AllDescendants: Boolean);
-begin
-  TypeName := 'TDataSet';
-  AllDescendants := True;
-end;
-
-function TDataSetVisualizer.GetVisualizerIdentifier: string;
-begin
-  Result := TFormDataSetVisualizer.IDENTIFIER;
-end;
-
-function TDataSetVisualizer.GetVisualizerName: string;
-begin
-  Result := 'DataSet Visualizer for Delphi';
-end;
-
-function TDataSetVisualizer.GetVisualizerDescription: string;
-begin
-  Result := 'Display fields and records, as well as cell values in DataSet';
-end;
-
-function TDataSetVisualizer.GetMenuText: string;
-begin
-  Result := 'Show DataSet contents';
-end;
-
-function TDataSetVisualizer.Show(const Expression, TypeName, EvalResult: string;
-  SuggestedLeft, SuggestedTop: Integer
-): IOTADebuggerVisualizerExternalViewerUpdater;
-var
-  VisDockForm: TFormDataSetVisualizer;
-  Form: TCustomForm;
-//  Frame: TFrameDataSetVisualizer;
-begin
-{
-  TFrameDataSetVisualizer.CreateAndShow(Expression, TypeName, EvalResult,
-    SuggestedLeft, SuggestedTop);
-}
-  VisDockForm := TFormDataSetVisualizer.Create(Expression);
-
-  Form := (BorlandIDEServices as INTAServices).CreateDockableForm(
-    VisDockForm as INTACustomDockableForm);
-  Form.Left := SuggestedLeft;
-  Form.Top := SuggestedTop;
-
-//  (VisDockForm as IFrameFormHelper).SetForm(AForm);
-//  AFrame := (VisDockForm as IFrameFormHelper).GetFrame as TStringListViewerFrame;
-//  AFrame.AddStringListItems(Expression, TypeName, EvalResult);
-//  Result := AFrame as IOTADebuggerVisualizerExternalViewerUpdater;
-
-  VisDockForm.Frame.ShowDataSetOnGrid(Expression);
-
-  Result := VisDockForm.Frame as IOTADebuggerVisualizerExternalViewerUpdater;
-end;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-{ TFrameDataSetVisualizer }
-
-procedure TFrameDataSetVisualizer.ShowDataSetOnGrid(const Expression: string);
-var
-  OutputStr: string;
-begin
-  FIsAvailable := True;
-//  Result := Evaluate(Format('%s.DelimitedText', [FExpression]));
-//  Result := Copy(Result, 2, Length(Result) -2);
-
-//  DBGridOutput.DataSource.DataSet := Evaluate(Expression);
-//  DataSourceDataSetVisualizer.DataSet := Evaluate(Expression);
-//  DataSetProviderInput.DataSet := Evaluate(Expression);
-//  ClientDataSetOutput.Data := DataSetProviderInput.Data;
-//  Label1.Caption := IntToStr(Evaluate(Expression).RecordCount);
-//  Memo1.Text:= Evaluate(Expression);
-  OutputStr := Evaluate(Expression);
-//  Memo1.Text:= Format('%s-%s-%p', [OutputStr, IntToHex(StrToInt(OutputStr)), Pointer(StrToUInt64('$' + IntToHex(StrToInt(OutputStr)))) {TDataSet(    Pointer(StrToUInt64('$' + IntToHex(StrToInt(OutputStr))))^           ).Fields[0].AsInteger}]);
-  DBGridOutput.DataSource.DataSet := TDataSet(PInteger(StrToInt(OutputStr))^);
-end;
-
-//function TFrameDataSetVisualizer.Evaluate(const Expression: string): TDataSet;
-function TFrameDataSetVisualizer.Evaluate(const Expression: string): string;
-var
-  CurProcess: IOTAProcess;
-  CurThread: IOTAThread;
-  ResultStr: array[0..4095] of Char;
-  CanModify: Boolean;
-  IsDone: Boolean;
-  ResultAddr, ResultSize, ResultVal: LongWord;
-  EvalRes: TOTAEvaluateResult;
-  DebugSvcs: IOTADebuggerServices;
-begin
-//  Result := nil;
-  Result := '';
-
-  if Supports(BorlandIDEServices, IOTADebuggerServices, DebugSvcs) then
-    CurProcess := DebugSvcs.CurrentProcess;
-
-  if CurProcess <> nil then
-  begin
-    CurThread := CurProcess.CurrentThread;
-    if CurThread <> nil then
-    begin
-      repeat
-        IsDone := True;
-
-        EvalRes := CurThread.Evaluate(Expression, @ResultStr, Length(ResultStr),
-          CanModify, eseAll, '', ResultAddr, ResultSize, ResultVal, '', 0);
-
-        case EvalRes of
-//          erOK: Result := TDataSet(PInteger(ResultAddr)^);//ResultStr;
-//          erOK: Result := TDataSet(Pointer(StrToUInt64('$' + IntToHex(ResultAddr)))^);//ResultStr;
-//          erOK: Result := Format('%s-erOK-%s-%d-%d-%d',[Expression, 'ResultStr', Length(ResultStr), ResultAddr, ResultSize]);//ResultStr;
-//          erOK: Result := Format('%s-erOK-%d-%p-%p-%p-%p-%p',[Expression, ResultAddr, Pointer(ResultAddr), PInteger(ResultAddr), Pointer(@ResultAddr), PInteger(@ResultAddr), Addr(ResultAddr)]);//ResultStr;
-            erOK: Result := IntToStr(ResultAddr);
-          erDeferred:
-            begin
-//              FCompleted := False;
-//              FDeferredResult := '';
-//              FDeferredError := False;
-//              FNotifierIndex := CurThread.AddNotifier(Self);
-//              while not FCompleted do
-//                DebugSvcs.ProcessDebugEvents;
-//              CurThread.RemoveNotifier(FNotifierIndex);
-//              FNotifierIndex := -1;
-//              if not FDeferredError then
-//              begin
-//                if FDeferredResult <> '' then
-//                  Result := FDeferredResult
-//                else
-//                  Result := ResultStr;
-//              end;
-              DebugSvcs.ProcessDebugEvents;
-              IsDone := False;
-            end;
-          erBusy:
-            begin
-              IsDone := False;
-            end;
-        end;
-      until IsDone = True;;
-    end;
-  end;
-{
-begin
-  Result := '';
-
-      repeat
-      begin
-
-      end
-      until IsDone = True;
-end;
-}
-end;
-
-procedure TFrameDataSetVisualizer.CloseVisualizer;
-begin
-  (Parent as TCustomForm).Close;
-end;
-
-procedure TFrameDataSetVisualizer.MarkUnavailable(
-  Reason: TOTAVisualizerUnavailableReason);
-begin
-  FIsAvailable := False;
-end;
-
-procedure TFrameDataSetVisualizer.RefreshVisualizer(
-  const Expression, TypeName, EvalResult: string);
-begin
-//  FIsAvailable := True;
-  ShowDataSetOnGrid(Expression);
-end;
-
-procedure TFrameDataSetVisualizer.SetClosedCallback(
-  ClosedProc: TOTAVisualizerClosedProcedure);
-begin
-end;
-
-procedure TFrameDataSetVisualizer.StringListViewData(Sender: TObject; Item: TListItem);
-begin
-end;
-
-{
-class procedure TFrameDataSetVisualizer.CreateAndShow(
-  const Expression, TypeName, EvalResult: string;
-  SuggestedLeft, SuggestedTop: Integer);
-begin
-
-end;
-}
-
-{ TFormDataSetVisualizer }
-
-constructor TFormDataSetVisualizer.Create(const Expression: string);
-begin
-  FExpression := Expression;
-end;
-
-function TFormDataSetVisualizer.GetCaption: string;
-begin
-  Result := Format('Visualizer: %s', [FExpression]);
-end;
-
-function TFormDataSetVisualizer.GetFrameClass: TCustomFrameClass;
-begin
-  Result := TFrameDataSetVisualizer;
-end;
-
-procedure TFormDataSetVisualizer.FrameCreated(AFrame: TCustomFrame);
-begin
-  FFrame := AFrame as TFrameDataSetVisualizer;
-  FFrame.DataSetProviderInput := TDataSetProvider.Create(FFrame);
-end;
-
-function TFormDataSetVisualizer.GetIdentifier: string;
-begin
-  Result := IDENTIFIER;
-end;
-
-function TFormDataSetVisualizer.GetMenuActionList: TCustomActionList;
-begin
-  Result := nil;
-end;
-
-function TFormDataSetVisualizer.GetMenuImageList: TCustomImageList;
-begin
-  Result := nil;
-end;
-
-procedure TFormDataSetVisualizer.CustomizePopupMenu(PopupMenu: TPopupMenu);
-begin
-end;
-
-function TFormDataSetVisualizer.GetToolbarActionList: TCustomActionList;
-begin
-  Result := nil;
-end;
-
-function TFormDataSetVisualizer.GetToolbarImageList: TCustomImageList;
-begin
-  Result := nil;
-end;
-
-procedure TFormDataSetVisualizer.CustomizeToolBar(ToolBar: TToolBar);
-begin
-end;
-
-procedure TFormDataSetVisualizer.LoadWindowState(Desktop: TCustomIniFile; const Section: string);
-begin
-end;
-
-procedure TFormDataSetVisualizer.SaveWindowState(Desktop: TCustomIniFile; const Section: string; IsProject: Boolean);
-begin
-end;
-
-function TFormDataSetVisualizer.GetEditState: TEditState;
-begin
-  Result := [];
-end;
-
-function TFormDataSetVisualizer.EditAction(Action: TEditAction): Boolean;
-begin
-  Result := False;
-end;
-
-var
-  _DataSetVisualizer: TDataSetVisualizer;
-
-procedure Register;
-var
-  Services: IOTADebuggerServices;
-begin
-  if Supports(BorlandIDEServices, IOTADebuggerServices, Services) then
-  begin
-    _DataSetVisualizer := TDataSetVisualizer.Create;
-    Services.RegisterDebugVisualizer(_DataSetVisualizer);
-  end;
-//  _DataSetVisualizer := TDataSetVisualizer.Create;
-//  (BorlandIDEServices as IOTADebuggerServices).RegisterDebugVisualizer(_DataSetVisualizer);
-end;
-
-procedure RemoveVisualizer;
-var
-  Services: IOTADebuggerServices;
-begin
-  if Supports(BorlandIDEServices, IOTADebuggerServices, Services) then
-  begin
-    Services.UnregisterDebugVisualizer(_DataSetVisualizer);
-    _DataSetVisualizer := nil;
-  end;
-end;
-
-initialization
-finalization
-  RemoveVisualizer;
-*)
-uses
-//  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls,
-    Vcl.Forms
+  Vcl.Forms
   , ToolsAPI
-//  ,  Dialogs
   , Vcl.ComCtrls
   , Vcl.Grids
   , Vcl.DBGrids
@@ -475,8 +16,6 @@ uses
   , System.Classes
   , Vcl.Controls
   ;
-
-
 
 type
   TAvailableState = (asAvailable, asProcRunning, asOutOfScope, asNotAvailable);
@@ -645,8 +184,6 @@ var
   AFrame: TFrameDataSetVisualizer;
   VisDockForm: INTACustomDockableForm;
 begin
-//  try
-  (BorlandIDEServices As IOTAMessageServices).AddTitleMessage('Hello World!');
   VisDockForm := TFormDataSetVisualizer.Create(Expression) as INTACustomDockableForm;
   AForm := (BorlandIDEServices as INTAServices).CreateDockableForm(VisDockForm);
   AForm.Left := SuggestedLeft;
@@ -655,9 +192,6 @@ begin
   AFrame := (VisDockForm as IDataSetVisualizerFrameFormHelper).GetFrame as TFrameDataSetVisualizer;
   AFrame.AddStringListItems(Expression, TypeName, EvalResult);
   Result := AFrame as IOTADebuggerVisualizerExternalViewerUpdater;
-//  except
-    //
-//  end;
 end;
 
 
@@ -670,31 +204,17 @@ procedure TFrameDataSetVisualizer.AddStringListItems(const Expression, TypeName,
   var
     TempStr: string;
   begin
-//    // Integer returned from .Evaluate has single quotes at the start & end.
-//    TempStr := Evaluate('IntToStr(' + FExpression + '.' + PropertyName + ')');
-//    Result := StrToInt(StripSingleQuotePrefixAndSuffix(TempStr));
     TempStr := Evaluate(FExpression + '.' + PropertyName);
     Result := Copy(TempStr, 2, Length(TempStr) - 2);
   end;
 
   function GetInteger(const PropertyName: string): Integer;
-//  var
-//    TempStr: string;
   begin
-//    // Integer returned from .Evaluate has single quotes at the start & end.
-//    TempStr := Evaluate('IntToStr(' + FExpression + '.' + PropertyName + ')');
-//    Result := StrToInt(StripSingleQuotePrefixAndSuffix(TempStr));
     Result := StrToInt(Evaluate(FExpression + '.' + PropertyName));
   end;
 
   function GetBoolean(const PropertyName: string): Boolean;
-//  var
-//    TempStr: string;
   begin
-//    TempStr := Evaluate('BoolToStr(' + FExpression + '.' + PropertyName +
-////      ', True)' {Returning 'True' of 'False'});
-//      ')');
-//    Result := StrToBool(StripSingleQuotePrefixAndSuffix(TempStr));
     Result := StrToBool(Evaluate(FExpression + '.' + PropertyName));
   end;
 
@@ -739,7 +259,6 @@ begin
   for FieldNo := 1 to FieldCount do
   begin
     ClientDataSetOutput.FieldDefs.Add(
-//      GetString('Fields[' + IntToStr(FieldNo - 1) + '].FieldName'),
       Evaluate(FExpression + '.Fields[' + IntToStr(FieldNo - 1) + '].FieldName'),
       TFieldType(GetEnumValue(
         TypeInfo(TFieldType),
@@ -756,17 +275,13 @@ begin
     begin
       TempStr := TempStr + '-' +
         Evaluate(FExpression + '.Fields[' + IntToStr(FieldNo - 1) + '].Value');
-{
-DataSet: -111-'AAA'-1.01-'5/05/2019'-'5/05/2019 1:41:14 PM'-222-'BBB'-2.02-'5/06/2019'-'5/06/2019 1:41:14 PM'
-}
       ClientDataSetOutput.Fields[FieldNo - 1].Value :=
         Evaluate(FExpression + '.Fields[' + IntToStr(FieldNo - 1) + '].Value');
     end;
     ClientDataSetOutput.Post;
     Evaluate(FExpression + '.Next');
   end;
-//  TempStr := Evaluate(FExpression + '.Eof');
-  Memo1.Text := FExpression + ': ' + TempStr;//+ Evaluate(FExpression);
+  Memo1.Text := FExpression + ': ' + TempStr;
 end;
 
 procedure TFrameDataSetVisualizer.AfterSave;
@@ -793,11 +308,13 @@ end;
 function TFrameDataSetVisualizer.Evaluate(Expression: string): string;
 
   function StripSingleQuotePrefixAndSuffix(const SourceStr: string): string;
+  const
+    SINGLE_QUOTE = '''';
   var
     HasSingleQuotePrefixAndSuffix: Boolean;
   begin
-    HasSingleQuotePrefixAndSuffix := (SourceStr[1] = '''')
-      and (SourceStr[Length(SourceStr)] = '''');
+    HasSingleQuotePrefixAndSuffix := (SourceStr[1] = SINGLE_QUOTE)
+      and (SourceStr[Length(SourceStr)] = SINGLE_QUOTE);
 
     if HasSingleQuotePrefixAndSuffix then
       Result := Copy(SourceStr, 2, Length(SourceStr) - 2)
@@ -805,8 +322,6 @@ function TFrameDataSetVisualizer.Evaluate(Expression: string): string;
       Result := SourceStr;
   end;
 
-const
-  SINGLE_QUOTE = '''';
 var
   CurProcess: IOTAProcess;
   CurThread: IOTAThread;
@@ -816,14 +331,6 @@ var
   ResultAddr, ResultSize, ResultVal: LongWord;
   EvalRes: TOTAEvaluateResult;
   DebugSvcs: IOTADebuggerServices;
-
-  DataSetProvider: TDatasetProvider;
-  DataSetPointer: ^TDataSet;
-  ClientDataSet: TClientDataSet;
-  MemoryStream: TMemoryStream;
-  MemoryTransfer: Integer;
-
-  IsEnclosedBySingleQuotes: Boolean;
 begin
   begin
     Result := '';
@@ -839,31 +346,8 @@ begin
           Done := True;
           EvalRes := CurThread.Evaluate(Expression, @ResultStr, Length(ResultStr),
             CanModify, eseAll, '', ResultAddr, ResultSize, ResultVal, '', 0);
-//          DataSetProvider := TDataSetProvider.Create(nil);
-//          DataSetPointer := Pointer(ResultAddr);
-//          DataSetProvider.DataSet := DataSetPointer^;
-//          ClientDataSet.Data := DataSetProvider.Data;
-//          DataSetProvider.Free;
-//            MemoryStream := TMemoryStream.Create;
           case EvalRes of
             erOK: Result := ResultStr;
-//            erOK: Result := IfThen(
-//              (ResultStr[1] = '''')
-//                and (ResultStr[Length(ResultStr)] = ''''),
-//              Copy(ResultStr, 2, Length(ResultStr) - 2),
-//              ResultStr);
-//            erOK: Result := DataSetPointer.ToString;//IntToStr(ClientDataSet.RecordCount);
-//            erOK:
-//              begin
-//                Result := ResultStr;
-//
-//                IsEnclosedBySingleQuotes := (Result[1] = '''')
-//                  and (Result[Length(Result)] = '''');
-//
-//                if IsEnclosedBySingleQuotes then
-//                  Result := Copy(Result, 2, Length(Result) - 2)
-//                else
-//              end;
             erDeferred:
               begin
                 FCompleted := False;
@@ -888,7 +372,6 @@ begin
                 Done := False;
               end;
           end;
-//          ClientDataSet.Free;
         end
         until Done = True;
       end;
@@ -1136,13 +619,13 @@ procedure Register;
 var
   DebuggerServices: IOTADebuggerServices;
 begin
-//  DataSetVisualizer := TDataSetVisualizer.Create;
-//  (BorlandIDEServices as IOTADebuggerServices).RegisterDebugVisualizer(DataSetVisualizer);
-  if Supports(BorlandIDEServices, IOTADebuggerServices, DebuggerServices) then
-  begin
-    DataSetVisualizer := TDataSetVisualizer.Create;
-    DebuggerServices.RegisterDebugVisualizer(DataSetVisualizer);
-  end;
+  DataSetVisualizer := TDataSetVisualizer.Create;
+  (BorlandIDEServices as IOTADebuggerServices).RegisterDebugVisualizer(DataSetVisualizer);
+//  if Supports(BorlandIDEServices, IOTADebuggerServices, DebuggerServices) then
+//  begin
+//    DataSetVisualizer := TDataSetVisualizer.Create;
+//    DebuggerServices.RegisterDebugVisualizer(DataSetVisualizer);
+//  end;
 end;
 
 procedure RemoveVisualizer;
