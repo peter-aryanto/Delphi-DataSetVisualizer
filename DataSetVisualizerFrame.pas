@@ -40,9 +40,6 @@ type
     FItems: TStrings;
     FAvailableState: TAvailableState;
     function Evaluate(Expression: string): string;
-    function GetDelimiter: string;
-    function GetStrictDelimiter: Boolean;
-    function GetDelimitedText: string;
   protected
     procedure SetParent(AParent: TWinControl); override;
   public
@@ -81,8 +78,8 @@ uses
 {$R *.dfm}
 
 resourcestring
-  sStringListVisualizerName = 'DataSet Visualizer for Delphi';
-  sStringListVisualizerDescription = 'Displays the value of each field and record in a DataSet';
+  sDataSetVisualizerName = 'DataSet Visualizer for Delphi';
+  sDataSetVisualizerDescription = 'Displays the value of each field and record in a DataSet';
   sMenuText = 'Show DataSet content';
   sFormCaption = 'DataSet Visualizer for %s';
   sProcessNotAccessible = 'process not accessible';
@@ -100,7 +97,8 @@ type
     procedure SetFrame(Form: TCustomFrame);
   end;
 
-  TFormDataSetVisualizer = class(TInterfacedObject, INTACustomDockableForm, IDataSetVisualizerFrameFormHelper)
+  TFormDataSetVisualizer = class(TInterfacedObject,
+    INTACustomDockableForm, IDataSetVisualizerFrameFormHelper)
   private
     FMyFrame: TFrameDataSetVisualizer;
     FMyForm: TCustomForm;
@@ -129,17 +127,20 @@ type
     procedure SetFrame(Frame: TCustomFrame);
   end;
 
-  TDataSetVisualizer = class(TInterfacedObject, IOTADebuggerVisualizer,
-    IOTADebuggerVisualizerExternalViewer)
+  TDataSetVisualizer = class(TInterfacedObject,
+    IOTADebuggerVisualizer, IOTADebuggerVisualizerExternalViewer)
   public
+    { IOTADebuggerVisualizer }
     function GetSupportedTypeCount: Integer;
     procedure GetSupportedType(Index: Integer; var TypeName: string;
       var AllDescendants: Boolean);
     function GetVisualizerIdentifier: string;
     function GetVisualizerName: string;
     function GetVisualizerDescription: string;
+    { IOTADebuggerVisualizerExternalViewer }
     function GetMenuText: string;
-    function Show(const Expression, TypeName, EvalResult: string; Suggestedleft, SuggestedTop: Integer): IOTADebuggerVisualizerExternalViewerUpdater;
+    function Show(const Expression, TypeName, EvalResult: string;
+      Suggestedleft, SuggestedTop: Integer): IOTADebuggerVisualizerExternalViewerUpdater;
   end;
 
 { TDebuggerDateTimeVisualizer }
@@ -163,22 +164,21 @@ end;
 
 function TDataSetVisualizer.GetVisualizerDescription: string;
 begin
-  Result := sStringListVisualizerDescription;
+  Result := sDataSetVisualizerDescription;
 end;
 
-// TODO: Make this return the same value as GetIdentifier and contain "Peter Aryanto".
 function TDataSetVisualizer.GetVisualizerIdentifier: string;
 begin
-//  Result := ClassName;
   Result := 'DataSet Visualizer by Peter Aryanto';
 end;
 
 function TDataSetVisualizer.GetVisualizerName: string;
 begin
-  Result := sStringListVisualizerName;
+  Result := sDataSetVisualizerName;
 end;
 
-function TDataSetVisualizer.Show(const Expression, TypeName, EvalResult: string; SuggestedLeft, SuggestedTop: Integer): IOTADebuggerVisualizerExternalViewerUpdater;
+function TDataSetVisualizer.Show(const Expression, TypeName, EvalResult: string;
+  SuggestedLeft, SuggestedTop: Integer): IOTADebuggerVisualizerExternalViewerUpdater;
 var
   AForm: TCustomForm;
   AFrame: TFrameDataSetVisualizer;
@@ -200,75 +200,41 @@ end;
 procedure TFrameDataSetVisualizer.AddStringListItems(const Expression, TypeName,
   EvalResult: string);
 
-  function GetString(const PropertyName: string): string;
-  var
-    TempStr: string;
+  function EvaluateDataSet(const PropertyName: string): string;
   begin
-    TempStr := Evaluate(FExpression + '.' + PropertyName);
-    Result := Copy(TempStr, 2, Length(TempStr) - 2);
-  end;
-
-  function GetInteger(const PropertyName: string): Integer;
-  begin
-    Result := StrToInt(Evaluate(FExpression + '.' + PropertyName));
-  end;
-
-  function GetBoolean(const PropertyName: string): Boolean;
-  begin
-    Result := StrToBool(Evaluate(FExpression + '.' + PropertyName));
+    Result := Evaluate(FExpression + '.' + PropertyName);
   end;
 
 var
-  Delim, DelimText: string;
   FieldCount: Integer;
   FieldNo: Integer;
+  OriginalDataSetRecNo: Integer;
   TempStr: string;
-
-DS: TDataSet;
-SL: TStrings;
-Field: TField;
 begin
   FAvailableState := asAvailable;
   FExpression := Expression;
-{
-  if FItems = nil then
-    FItems := TStringList.Create
-  else
-    FItems.Clear;
 
-  Delim := GetDelimiter;
-  if Length(Delim) > 1 then
-  begin
-    FItems.Delimiter := Delim[2];
-    FItems.StrictDelimiter := GetStrictDelimiter;
-    DelimText := GetDelimitedText;
-    if DelimText <> '' then
-    begin
-      FItems.DelimitedText := DelimText;
-      StringListView.Items.Count := FItems.Count;
-    end else
-      StringListView.Items.Count := 0;
-    StringListView.Invalidate;
-  end else
-  begin
-    FAvailableState := asNotAvailable;
-    StringListView.Invalidate;
-  end;
-}
-  FieldCount := GetInteger('Fields.Count');
+  // Getting DataSet Fields (using FieldDefs)
+  FieldCount := StrToInt(EvaluateDataSet('Fields.Count'));
   for FieldNo := 1 to FieldCount do
   begin
     ClientDataSetOutput.FieldDefs.Add(
-      Evaluate(FExpression + '.Fields[' + IntToStr(FieldNo - 1) + '].FieldName'),
+      EvaluateDataSet('Fields[' + IntToStr(FieldNo - 1) + '].FieldName'),
       TFieldType(GetEnumValue(
         TypeInfo(TFieldType),
-        Evaluate(FExpression + '.Fields[' + IntToStr(FieldNo - 1) + '].DataType'))),
-      GetInteger('Fields[' + IntToStr(FieldNo - 1) + '].Size'));
+        EvaluateDataSet('Fields[' + IntToStr(FieldNo - 1) + '].DataType'))
+      ),
+      StrToInt(EvaluateDataSet('Fields[' + IntToStr(FieldNo - 1) + '].Size'))
+    );
   end;
   ClientDataSetOutput.CreateDataSet;
 
-  Evaluate(FExpression + '.First');
-  while not GetBoolean('Eof') do
+  // Preserving Original DataSet Cursor
+  OriginalDataSetRecNo := StrToInt(EvaluateDataSet('RecNo'));
+
+  // Getting DataSet Contents (Values of Records and Fields)
+  EvaluateDataSet('First');
+  while not StrToBool(EvaluateDataSet('Eof')) do
   begin
     ClientDataSetOutput.Append;
     for FieldNo := 1 to FieldCount do
@@ -281,17 +247,20 @@ begin
     ClientDataSetOutput.Post;
     Evaluate(FExpression + '.Next');
   end;
+  ClientDataSetOutput.First;
+
+  // Preserving Original DataSet Cursor
+  EvaluateDataSet('SetRecNo(' + IntToStr(OriginalDataSetRecNo) + ')');
+
   Memo1.Text := FExpression + ': ' + TempStr;
 end;
 
 procedure TFrameDataSetVisualizer.AfterSave;
 begin
-
 end;
 
 procedure TFrameDataSetVisualizer.BeforeSave;
 begin
-
 end;
 
 procedure TFrameDataSetVisualizer.CloseVisualizer;
@@ -302,7 +271,6 @@ end;
 
 procedure TFrameDataSetVisualizer.Destroyed;
 begin
-
 end;
 
 function TFrameDataSetVisualizer.Evaluate(Expression: string): string;
@@ -397,22 +365,6 @@ begin
   FDeferredError := ReturnCode <> 0;
 end;
 
-function TFrameDataSetVisualizer.GetDelimiter: string;
-begin
-  Result := Evaluate(Format('%s.Delimiter', [FExpression]));
-end;
-
-function TFrameDataSetVisualizer.GetStrictDelimiter: Boolean;
-begin
-  Result := StrToBool(Evaluate(Format('%s.StrictDelimiter', [FExpression])));
-end;
-
-function TFrameDataSetVisualizer.GetDelimitedText: string;
-begin
-  Result := Evaluate(Format('%s.DelimitedText', [FExpression]));
-  Result := Copy(Result, 2, Length(Result) -2);
-end;
-
 procedure TFrameDataSetVisualizer.MarkUnavailable(
   Reason: TOTAVisualizerUnavailableReason);
 begin
@@ -427,13 +379,11 @@ end;
 
 procedure TFrameDataSetVisualizer.Modified;
 begin
-
 end;
 
 procedure TFrameDataSetVisualizer.ModifyComplete(const ExprStr,
   ResultStr: string; ReturnCode: Integer);
 begin
-
 end;
 
 procedure TFrameDataSetVisualizer.RefreshVisualizer(const Expression, TypeName,
@@ -506,7 +456,6 @@ end;
 
 procedure TFrameDataSetVisualizer.ThreadNotify(Reason: TOTANotifyReason);
 begin
-
 end;
 
 { TFormDataSetVisualizer }
@@ -519,12 +468,10 @@ end;
 
 procedure TFormDataSetVisualizer.CustomizePopupMenu(PopupMenu: TPopupMenu);
 begin
-  // no toolbar
 end;
 
 procedure TFormDataSetVisualizer.CustomizeToolBar(ToolBar: TToolBar);
 begin
-// no toolbar
 end;
 
 function TFormDataSetVisualizer.EditAction(Action: TEditAction): Boolean;
@@ -564,7 +511,6 @@ end;
 
 function TFormDataSetVisualizer.GetIdentifier: string;
 begin
-//  Result := 'StringListDebugVisualizer';
   Result := 'DataSet Visualizer by Peter Aryanto';
 end;
 
@@ -591,13 +537,11 @@ end;
 procedure TFormDataSetVisualizer.LoadWindowState(Desktop: TCustomIniFile;
   const Section: string);
 begin
-  //no desktop saving
 end;
 
 procedure TFormDataSetVisualizer.SaveWindowState(Desktop: TCustomIniFile;
   const Section: string; IsProject: Boolean);
 begin
-  //no desktop saving
 end;
 
 procedure TFormDataSetVisualizer.SetForm(Form: TCustomForm);
@@ -616,16 +560,9 @@ var
   DataSetVisualizer: IOTADebuggerVisualizer;
 
 procedure Register;
-var
-  DebuggerServices: IOTADebuggerServices;
 begin
   DataSetVisualizer := TDataSetVisualizer.Create;
   (BorlandIDEServices as IOTADebuggerServices).RegisterDebugVisualizer(DataSetVisualizer);
-//  if Supports(BorlandIDEServices, IOTADebuggerServices, DebuggerServices) then
-//  begin
-//    DataSetVisualizer := TDataSetVisualizer.Create;
-//    DebuggerServices.RegisterDebugVisualizer(DataSetVisualizer);
-//  end;
 end;
 
 procedure RemoveVisualizer;
