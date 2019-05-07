@@ -28,6 +28,10 @@ type
     DataSourceOutput: TDataSource;
     ClientDataSetOutput: TClientDataSet;
     DataSetProviderInput: TDataSetProvider;
+    {
+      TODO: MAYBE, the method below can be removed AFTER fail-proofing the code against
+        possibilities of: nil object, before CreateDataSet, no fields.
+    }
     procedure StringListViewData(Sender: TObject; Item: TListItem);
   private
     FOwningForm: TCustomForm;
@@ -214,6 +218,18 @@ begin
   FAvailableState := asAvailable;
   FExpression := Expression;
 
+  if not StrToBool(Evaluate('Assigned(' + FExpression + ')')) then
+  begin
+    Memo1.Text := FExpression + ' object has not been created yet!';
+    Exit;
+  end;
+
+  if not StrToBool(EvaluateDataSet('Active')) then
+  begin
+    Memo1.Text := FExpression + ' is not Active yet!';
+    Exit;
+  end;
+
   // Getting DataSet Fields (using FieldDefs)
   FieldCount := StrToInt(EvaluateDataSet('Fields.Count'));
   for FieldNo := 1 to FieldCount do
@@ -231,6 +247,12 @@ begin
 
   // Preserving Original DataSet Cursor
   OriginalDataSetRecNo := StrToInt(EvaluateDataSet('RecNo'));
+
+  if OriginalDataSetRecNo = 0 then
+  begin
+    Memo1.Text := FExpression + ' has no record.';
+    Exit;
+  end;
 
   // Getting DataSet Contents (Values of Records and Fields)
   EvaluateDataSet('First');
@@ -560,9 +582,14 @@ var
   DataSetVisualizer: IOTADebuggerVisualizer;
 
 procedure Register;
+var
+  DebuggerServices: IOTADebuggerServices;
 begin
-  DataSetVisualizer := TDataSetVisualizer.Create;
-  (BorlandIDEServices as IOTADebuggerServices).RegisterDebugVisualizer(DataSetVisualizer);
+  if Supports(BorlandIDEServices, IOTADebuggerServices, DebuggerServices) then
+  begin
+    DataSetVisualizer := TDataSetVisualizer.Create;
+    DebuggerServices.RegisterDebugVisualizer(DataSetVisualizer);
+  end;
 end;
 
 procedure RemoveVisualizer;
