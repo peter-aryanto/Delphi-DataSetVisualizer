@@ -213,6 +213,7 @@ var
   FieldCount: Integer;
   FieldNo: Integer;
   OriginalDataSetRecNo: Integer;
+  IsNull: Boolean;
   TempStr: string;
 begin
   FAvailableState := asAvailable;
@@ -261,10 +262,14 @@ begin
     ClientDataSetOutput.Append;
     for FieldNo := 1 to FieldCount do
     begin
-      TempStr := TempStr + '-' +
-        Evaluate(FExpression + '.Fields[' + IntToStr(FieldNo - 1) + '].Value');
-      ClientDataSetOutput.Fields[FieldNo - 1].Value :=
-        Evaluate(FExpression + '.Fields[' + IntToStr(FieldNo - 1) + '].Value');
+      TempStr := TempStr
+          + '-' + Evaluate(FExpression + '.Fields[' + IntToStr(FieldNo - 1) + '].Value');
+
+      IsNull :=
+        StrToBool(Evaluate(FExpression + '.Fields[' + IntToStr(FieldNo - 1) + '].IsNull'));
+      if not IsNull then
+        ClientDataSetOutput.Fields[FieldNo - 1].Value :=
+          Evaluate(FExpression + '.Fields[' + IntToStr(FieldNo - 1) + '].Value');
     end;
     ClientDataSetOutput.Post;
     Evaluate(FExpression + '.Next');
