@@ -36,6 +36,6 @@ requires
 
 contains
   DataSetVisualizerFrame in 'DataSetVisualizerFrame.pas' {FrameDataSetVisualizer: TFrame},
-  DataSetVisualizer in 'DataSetVisualizer.pas';
+  MidasLib;
 
 end.

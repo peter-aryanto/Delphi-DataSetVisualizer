@@ -4,34 +4,15 @@ object FrameDataSetVisualizer: TFrameDataSetVisualizer
   Width = 547
   Height = 275
   TabOrder = 0
-  object StringListView: TListView
-    Left = 0
-    Top = 0
-    Width = 547
-    Height = 100
-    Align = alTop
-    Columns = <
-      item
-        Caption = 'Index'
-      end
-      item
-        AutoSize = True
-        Caption = 'Value'
-      end>
-    OwnerData = True
-    ReadOnly = True
-    TabOrder = 0
-    ViewStyle = vsReport
-    OnData = StringListViewData
-  end
   object DBGridOutput: TDBGrid
-    Left = 0
-    Top = 100
-    Width = 547
-    Height = 100
-    Align = alTop
+    AlignWithMargins = True
+    Left = 3
+    Top = 3
+    Width = 541
+    Height = 204
+    Align = alClient
     DataSource = DataSourceOutput
-    TabOrder = 1
+    TabOrder = 0
     TitleFont.Charset = DEFAULT_CHARSET
     TitleFont.Color = clWindowText
     TitleFont.Height = -11
@@ -39,14 +20,16 @@ object FrameDataSetVisualizer: TFrameDataSetVisualizer
     TitleFont.Style = []
   end
   object Memo1: TMemo
-    Left = 16
-    Top = 206
-    Width = 513
+    AlignWithMargins = True
+    Left = 3
+    Top = 213
+    Width = 541
     Height = 59
+    Align = alBottom
     Lines.Strings = (
-      'Memo1')
+      '')
     ReadOnly = True
-    TabOrder = 2
+    TabOrder = 1
   end
   object DataSourceOutput: TDataSource
     DataSet = ClientDataSetOutput

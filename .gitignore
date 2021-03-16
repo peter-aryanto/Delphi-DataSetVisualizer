@@ -2,6 +2,8 @@
 *.res
 *.identcache
 *.stat
+*.dsk
+*.skincfg
 Win32/
 __history/
 

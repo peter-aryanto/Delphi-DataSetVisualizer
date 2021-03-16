@@ -22,17 +22,11 @@ type
 
   TFrameDataSetVisualizer = class(TFrame, IOTADebuggerVisualizerExternalViewerUpdater,
     IOTAThreadNotifier, IOTAThreadNotifier160)
-    StringListView: TListView;
     Memo1: TMemo;
     DBGridOutput: TDBGrid;
     DataSourceOutput: TDataSource;
     ClientDataSetOutput: TClientDataSet;
     DataSetProviderInput: TDataSetProvider;
-    {
-      TODO: MAYBE, the method below can be removed AFTER fail-proofing the code against
-        possibilities of: nil object, before CreateDataSet, no fields.
-    }
-    procedure StringListViewData(Sender: TObject; Item: TListItem);
   private
     FOwningForm: TCustomForm;
     FClosedProc: TOTAVisualizerClosedProcedure;
@@ -77,7 +71,6 @@ uses
   System.SysUtils, Actnlist, ImgList, Menus, IniFiles, DesignIntf
   , System.StrUtils
   , System.TypInfo
-  , MidasLib
   ;
 
 {$R *.dfm}
@@ -93,17 +86,15 @@ resourcestring
 
 type
 
-  // TODO: Try not to use this interface at all.
   IDataSetVisualizerFrameFormHelper = interface
     ['{E7EF12F0-7529-409C-80F9-C4A2531960CE}']
-    function GetForm: TCustomForm;
     function GetFrame: TCustomFrame;
     procedure SetForm(Form: TCustomForm);
-    procedure SetFrame(Form: TCustomFrame);
   end;
 
-  TFormDataSetVisualizer = class(TInterfacedObject,
-    INTACustomDockableForm, IDataSetVisualizerFrameFormHelper)
+  TFormDataSetVisualizer = class(TInterfacedObject, INTACustomDockableForm
+    , IDataSetVisualizerFrameFormHelper
+  )
   private
     FMyFrame: TFrameDataSetVisualizer;
     FMyForm: TCustomForm;
@@ -126,10 +117,8 @@ type
     function GetEditState: TEditState;
     function EditAction(Action: TEditAction): Boolean;
     { IDataSetVisualizerFrameFormHelper }
-    function GetForm: TCustomForm;
     function GetFrame: TCustomFrame;
     procedure SetForm(Form: TCustomForm);
-    procedure SetFrame(Frame: TCustomFrame);
   end;
 
   TDataSetVisualizer = class(TInterfacedObject,
@@ -202,161 +191,14 @@ end;
 
 { TFrameDataSetVisualizer }
 
-procedure TFrameDataSetVisualizer.AddStringListItems(const Expression, TypeName,
-  EvalResult: string);
-
-  function EvaluateDataSet(const PropertyName: string): string;
-  begin
-    Result := Evaluate(FExpression + '.' + PropertyName);
-  end;
-
-  procedure SaveDataSet(AExtraString: string);
-  var
-    LTestStringList: TStringList;
-    LResult: string;
-  begin
-    LTestStringList := TStringList.Create;
-    try
-      ////Evalueate(FExpression
-      LTestStringList.Add('1');
-      LTestStringList.Add('2');
-      LTestStringList.Add('3');
-      LTestStringList.Add(AExtraString);
-      LTestStringList.SaveToFile('C:\temp\TestStringList1.txt');
-
-      //LResult := Evaluate('TClientDataSet(' + FExpression + ').SaveToFile(''C:\temp\TestClientDataSet.xml'')');
-      LResult := Evaluate(FExpression + '.SaveToFile(''C:\temp\TestClientDataSet.xml'')');
-      LTestStringList.Clear;
-      LTestStringList.Add(LResult);
-      LTestStringList.SaveToFile('C:\temp\TestStringList2.txt');
-    finally
-      LTestStringList.Free;
-    end;
-  end;
-
-  procedure SaveDataSetToCsv;
-  var
-    FieldCountStr: string;
-    FieldCount: Integer;
-    Stream: TFileStream;
-    //Stream: TStringList;
-    FieldNo: Integer;
-    OutLine: string;
-    sTemp: string;
-  begin
-    FieldCountStr := EvaluateDataSet('Fields.Count');
-    if FieldCountStr = '' then
-    begin
-      SaveDataSet('-' + FieldCountStr + '-');
-      Exit;
-    end;
-    FieldCount := StrToInt(FieldCountStr);
-    Stream := TFileStream.Create('C:\temp\TestDataSet.csv', fmCreate);
-    //Stream := TStringList.Create;
-    try
-      EvaluateDataSet('First');
-      while not StrToBool(EvaluateDataSet('Eof')) do
-      begin
-        // You'll need to add your special handling here where OutLine is built
-        OutLine := '';
-        for FieldNo := 1 to FieldCount do
-        begin
-          sTemp := Evaluate(FExpression + '.Fields[' + IntToStr(FieldNo - 1) + '].Value');
-          // Special handling to sTemp here
-          OutLine := OutLine + '"' + sTemp + '"' + ',';
-        end;
-        // Remove final unnecessary ','
-        SetLength(OutLine, Length(OutLine) - 1);
-        // Write line to file
-        Stream.Write(OutLine[1], Length(OutLine) * SizeOf(Char));
-        // Write line ending
-        Stream.Write(sLineBreak, Length(sLineBreak));
-        //Stream.Add(OutLine);
-        Evaluate(FExpression + '.Next');
-
-      end;
-      SaveDataSet('-' + FieldCountStr + '-');
-      //SaveDataSet(Stream.Text);
-    finally
-      Stream.Free;  // Saves the file
-    end;
-  end;
-
-var
-  FieldCount: Integer;
-  FieldNo: Integer;
-  OriginalDataSetRecNo: Integer;
-  IsNull: Boolean;
-  TempStr: string;
+procedure TFrameDataSetVisualizer.AddStringListItems(
+  const Expression, TypeName, EvalResult: string
+);
 begin
   FAvailableState := asAvailable;
   FExpression := Expression;
-SaveDataSet(FExpression);
-ClientDataSetOutput.LoadFromFile('C:\temp\TestClientDataSet.xml');
-Exit;
-SaveDataSetToCsv;
-
-  if not StrToBool(Evaluate('Assigned(' + FExpression + ')')) then
-  begin
-    Memo1.Text := FExpression + ' object has not been created yet!';
-    Exit;
-  end;
-
-  if not StrToBool(EvaluateDataSet('Active')) then
-  begin
-    Memo1.Text := FExpression + ' is not Active yet!';
-    Exit;
-  end;
-
-  // Getting DataSet Fields (using FieldDefs)
-  FieldCount := StrToInt(EvaluateDataSet('Fields.Count'));
-  for FieldNo := 1 to FieldCount do
-  begin
-    ClientDataSetOutput.FieldDefs.Add(
-      EvaluateDataSet('Fields[' + IntToStr(FieldNo - 1) + '].FieldName'),
-      TFieldType(GetEnumValue(
-        TypeInfo(TFieldType),
-        EvaluateDataSet('Fields[' + IntToStr(FieldNo - 1) + '].DataType'))
-      ),
-      StrToInt(EvaluateDataSet('Fields[' + IntToStr(FieldNo - 1) + '].Size'))
-    );
-  end;
-  ClientDataSetOutput.CreateDataSet;
-
-  // Preserving Original DataSet Cursor
-  OriginalDataSetRecNo := StrToInt(EvaluateDataSet('RecNo'));
-
-  if OriginalDataSetRecNo = 0 then
-  begin
-    Memo1.Text := FExpression + ' has no record.';
-    Exit;
-  end;
-
-  // Getting DataSet Contents (Values of Records and Fields)
-  EvaluateDataSet('First');
-  while not StrToBool(EvaluateDataSet('Eof')) do
-  begin
-    ClientDataSetOutput.Append;
-    for FieldNo := 1 to FieldCount do
-    begin
-      TempStr := TempStr
-          + '-' + Evaluate(FExpression + '.Fields[' + IntToStr(FieldNo - 1) + '].Value');
-
-      IsNull :=
-        StrToBool(Evaluate(FExpression + '.Fields[' + IntToStr(FieldNo - 1) + '].IsNull'));
-      if not IsNull then
-        ClientDataSetOutput.Fields[FieldNo - 1].Value :=
-          Evaluate(FExpression + '.Fields[' + IntToStr(FieldNo - 1) + '].Value');
-    end;
-    ClientDataSetOutput.Post;
-    Evaluate(FExpression + '.Next');
-  end;
-  ClientDataSetOutput.First;
-
-  // Preserving Original DataSet Cursor
-  EvaluateDataSet('SetRecNo(' + IntToStr(OriginalDataSetRecNo) + ')');
-
-  Memo1.Text := FExpression + ': ' + TempStr;
+  Evaluate(FExpression + '.SaveToFile(''C:\temp\TestClientDataSet.xml'')');
+  ClientDataSetOutput.LoadFromFile('C:\temp\TestClientDataSet.xml');
 end;
 
 procedure TFrameDataSetVisualizer.AfterSave;
@@ -487,8 +329,6 @@ begin
     FAvailableState := asProcRunning;
   end else if Reason = ovurOutOfScope then
     FAvailableState := asOutOfScope;
-  StringListView.Items.Count := 1;
-  StringListView.Invalidate;
 end;
 
 procedure TFrameDataSetVisualizer.Modified;
@@ -533,41 +373,6 @@ begin
   inherited;
 end;
 
-procedure TFrameDataSetVisualizer.StringListViewData(Sender: TObject;
-  Item: TListItem);
-var
-  ItemCaption: string;
-  ItemText: string;
-begin
-  case FAvailableState of
-    asAvailable:
-      begin
-        ItemCaption := Format('[%d]', [Item.Index]);
-        ItemText := FItems[Item.Index];
-      end;
-    asProcRunning:
-      begin
-        ItemCaption := sProcessNotAccessible;
-        ItemText := sProcessNotAccessible;
-      end;
-    asOutOfScope:
-      begin
-        ItemCaption := sOutOfScope;
-        ItemText := sOutOfScope;
-      end;
-    asNotAvailable:
-      begin
-        ItemCaption := sValueNotAccessible;
-        ItemText := sValueNotAccessible;
-      end;
-  end;
-  Item.Caption := ItemCaption;
-  if Item.SubItems.Count = 0 then
-    Item.SubItems.Add(ItemText)
-  else
-    Item.SubItems[0] := ItemText;
-end;
-
 procedure TFrameDataSetVisualizer.ThreadNotify(Reason: TOTANotifyReason);
 begin
 end;
@@ -606,16 +411,6 @@ end;
 function TFormDataSetVisualizer.GetEditState: TEditState;
 begin
   Result := [];
-end;
-
-function TFormDataSetVisualizer.GetForm: TCustomForm;
-begin
-  Result := FMyForm;
-end;
-
-function TFormDataSetVisualizer.GetFrame: TCustomFrame;
-begin
-  Result := FMyFrame;
 end;
 
 function TFormDataSetVisualizer.GetFrameClass: TCustomFrameClass;
@@ -658,16 +453,16 @@ procedure TFormDataSetVisualizer.SaveWindowState(Desktop: TCustomIniFile;
 begin
 end;
 
+function TFormDataSetVisualizer.GetFrame: TCustomFrame;
+begin
+  Result := FMyFrame;
+end;
+
 procedure TFormDataSetVisualizer.SetForm(Form: TCustomForm);
 begin
   FMyForm := Form;
   if Assigned(FMyFrame) then
     FMyFrame.SetForm(FMyForm);
-end;
-
-procedure TFormDataSetVisualizer.SetFrame(Frame: TCustomFrame);
-begin
-   FMyFrame := TFrameDataSetVisualizer(Frame);
 end;
 
 var
@@ -698,6 +493,5 @@ end;
 initialization
 finalization
   RemoveVisualizer;
-
 end.
 
