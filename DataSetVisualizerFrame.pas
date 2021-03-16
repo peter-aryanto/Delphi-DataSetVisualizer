@@ -77,6 +77,7 @@ uses
   System.SysUtils, Actnlist, ImgList, Menus, IniFiles, DesignIntf
   , System.StrUtils
   , System.TypInfo
+  , MidasLib
   ;
 
 {$R *.dfm}
@@ -209,6 +210,78 @@ procedure TFrameDataSetVisualizer.AddStringListItems(const Expression, TypeName,
     Result := Evaluate(FExpression + '.' + PropertyName);
   end;
 
+  procedure SaveDataSet(AExtraString: string);
+  var
+    LTestStringList: TStringList;
+    LResult: string;
+  begin
+    LTestStringList := TStringList.Create;
+    try
+      ////Evalueate(FExpression
+      LTestStringList.Add('1');
+      LTestStringList.Add('2');
+      LTestStringList.Add('3');
+      LTestStringList.Add(AExtraString);
+      LTestStringList.SaveToFile('C:\temp\TestStringList1.txt');
+
+      //LResult := Evaluate('TClientDataSet(' + FExpression + ').SaveToFile(''C:\temp\TestClientDataSet.xml'')');
+      LResult := Evaluate(FExpression + '.SaveToFile(''C:\temp\TestClientDataSet.xml'')');
+      LTestStringList.Clear;
+      LTestStringList.Add(LResult);
+      LTestStringList.SaveToFile('C:\temp\TestStringList2.txt');
+    finally
+      LTestStringList.Free;
+    end;
+  end;
+
+  procedure SaveDataSetToCsv;
+  var
+    FieldCountStr: string;
+    FieldCount: Integer;
+    Stream: TFileStream;
+    //Stream: TStringList;
+    FieldNo: Integer;
+    OutLine: string;
+    sTemp: string;
+  begin
+    FieldCountStr := EvaluateDataSet('Fields.Count');
+    if FieldCountStr = '' then
+    begin
+      SaveDataSet('-' + FieldCountStr + '-');
+      Exit;
+    end;
+    FieldCount := StrToInt(FieldCountStr);
+    Stream := TFileStream.Create('C:\temp\TestDataSet.csv', fmCreate);
+    //Stream := TStringList.Create;
+    try
+      EvaluateDataSet('First');
+      while not StrToBool(EvaluateDataSet('Eof')) do
+      begin
+        // You'll need to add your special handling here where OutLine is built
+        OutLine := '';
+        for FieldNo := 1 to FieldCount do
+        begin
+          sTemp := Evaluate(FExpression + '.Fields[' + IntToStr(FieldNo - 1) + '].Value');
+          // Special handling to sTemp here
+          OutLine := OutLine + '"' + sTemp + '"' + ',';
+        end;
+        // Remove final unnecessary ','
+        SetLength(OutLine, Length(OutLine) - 1);
+        // Write line to file
+        Stream.Write(OutLine[1], Length(OutLine) * SizeOf(Char));
+        // Write line ending
+        Stream.Write(sLineBreak, Length(sLineBreak));
+        //Stream.Add(OutLine);
+        Evaluate(FExpression + '.Next');
+
+      end;
+      SaveDataSet('-' + FieldCountStr + '-');
+      //SaveDataSet(Stream.Text);
+    finally
+      Stream.Free;  // Saves the file
+    end;
+  end;
+
 var
   FieldCount: Integer;
   FieldNo: Integer;
@@ -218,6 +291,10 @@ var
 begin
   FAvailableState := asAvailable;
   FExpression := Expression;
+SaveDataSet(FExpression);
+ClientDataSetOutput.LoadFromFile('C:\temp\TestClientDataSet.xml');
+Exit;
+SaveDataSetToCsv;
 
   if not StrToBool(Evaluate('Assigned(' + FExpression + ')')) then
   begin
@@ -308,13 +385,23 @@ function TFrameDataSetVisualizer.Evaluate(Expression: string): string;
   var
     HasSingleQuotePrefixAndSuffix: Boolean;
   begin
-    HasSingleQuotePrefixAndSuffix := (SourceStr[1] = SINGLE_QUOTE)
-      and (SourceStr[Length(SourceStr)] = SINGLE_QUOTE);
-
-    if HasSingleQuotePrefixAndSuffix then
-      Result := Copy(SourceStr, 2, Length(SourceStr) - 2)
-    else
+    if SourceStr = '' then
+    begin
       Result := SourceStr;
+      Exit;
+    end;
+
+    try
+      HasSingleQuotePrefixAndSuffix := (SourceStr[1] = SINGLE_QUOTE)
+        and (SourceStr[Length(SourceStr)] = SINGLE_QUOTE);
+
+      if HasSingleQuotePrefixAndSuffix then
+        Result := Copy(SourceStr, 2, Length(SourceStr) - 2)
+      else
+        Result := SourceStr;
+    except
+      Result := '<<DS..Vis..Error>>';
+    end;
   end;
 
 var
