@@ -1,0 +1,48 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{559E86D8-5BA1-4000-BE46-83FFC919891F}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="DataSetVisualizer.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="TestUsingVcl\VisualizerTest.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="DataSetVisualizer">
+        <MSBuild Projects="DataSetVisualizer.dproj"/>
+    </Target>
+    <Target Name="DataSetVisualizer:Clean">
+        <MSBuild Projects="DataSetVisualizer.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="DataSetVisualizer:Make">
+        <MSBuild Projects="DataSetVisualizer.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="VisualizerTest">
+        <MSBuild Projects="TestUsingVcl\VisualizerTest.dproj"/>
+    </Target>
+    <Target Name="VisualizerTest:Clean">
+        <MSBuild Projects="TestUsingVcl\VisualizerTest.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="VisualizerTest:Make">
+        <MSBuild Projects="TestUsingVcl\VisualizerTest.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="DataSetVisualizer;VisualizerTest"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="DataSetVisualizer:Clean;VisualizerTest:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="DataSetVisualizer:Make;VisualizerTest:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>
