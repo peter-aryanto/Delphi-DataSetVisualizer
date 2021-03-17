@@ -6,4 +6,6 @@
 *.skincfg
 Win32/
 __history/
+__recovery/
+*.tvsconfig
 

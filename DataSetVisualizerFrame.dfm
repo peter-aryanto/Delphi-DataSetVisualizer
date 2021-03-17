@@ -12,6 +12,7 @@ object FrameDataSetVisualizer: TFrameDataSetVisualizer
     Height = 204
     Align = alClient
     DataSource = DataSourceOutput
+    ReadOnly = True
     TabOrder = 0
     TitleFont.Charset = DEFAULT_CHARSET
     TitleFont.Color = clWindowText
@@ -19,7 +20,7 @@ object FrameDataSetVisualizer: TFrameDataSetVisualizer
     TitleFont.Name = 'Tahoma'
     TitleFont.Style = []
   end
-  object Memo1: TMemo
+  object MemoExtraInfo: TMemo
     AlignWithMargins = True
     Left = 3
     Top = 213

@@ -22,7 +22,7 @@ type
 
   TFrameDataSetVisualizer = class(TFrame, IOTADebuggerVisualizerExternalViewerUpdater,
     IOTAThreadNotifier, IOTAThreadNotifier160)
-    Memo1: TMemo;
+    MemoExtraInfo: TMemo;
     DBGridOutput: TDBGrid;
     DataSourceOutput: TDataSource;
     ClientDataSetOutput: TClientDataSet;
@@ -38,6 +38,8 @@ type
     FItems: TStrings;
     FAvailableState: TAvailableState;
     function Evaluate(Expression: string): string;
+    function SetUpTempFile(out ATempFilePathAndNameToUse: string): Boolean;
+    function CanDeleteFileIfExists(const AFilePathAndName: string): Boolean;
   protected
     procedure SetParent(AParent: TWinControl); override;
   public
@@ -46,7 +48,7 @@ type
     procedure RefreshVisualizer(const Expression, TypeName, EvalResult: string);
     procedure SetClosedCallback(ClosedProc: TOTAVisualizerClosedProcedure);
     procedure SetForm(AForm: TCustomForm);
-    procedure AddStringListItems(const Expression, TypeName, EvalResult: string);
+    procedure DisplayDataSet(const Expression, TypeName, EvalResult: string);
 
     { IOTAThreadNotifier }
     procedure AfterSave;
@@ -71,6 +73,7 @@ uses
   System.SysUtils, Actnlist, ImgList, Menus, IniFiles, DesignIntf
   , System.StrUtils
   , System.TypInfo
+  , System.IOUtils
   ;
 
 {$R *.dfm}
@@ -184,21 +187,98 @@ begin
   AForm.Top := SuggestedTop;
   (VisDockForm as IDataSetVisualizerFrameFormHelper).SetForm(AForm);
   AFrame := (VisDockForm as IDataSetVisualizerFrameFormHelper).GetFrame as TFrameDataSetVisualizer;
-  AFrame.AddStringListItems(Expression, TypeName, EvalResult);
+  AFrame.DisplayDataSet(Expression, TypeName, EvalResult);
   Result := AFrame as IOTADebuggerVisualizerExternalViewerUpdater;
 end;
 
 
 { TFrameDataSetVisualizer }
 
-procedure TFrameDataSetVisualizer.AddStringListItems(
+procedure TFrameDataSetVisualizer.DisplayDataSet(
   const Expression, TypeName, EvalResult: string
 );
+var
+  LTempFilePathAndName: string;
 begin
   FAvailableState := asAvailable;
-  FExpression := Expression;
-  Evaluate(FExpression + '.SaveToFile(''C:\temp\TestClientDataSet.xml'')');
-  ClientDataSetOutput.LoadFromFile('C:\temp\TestClientDataSet.xml');
+  FExpression := 'TClientDataSet(' + Expression + ')';
+
+  MemoExtraInfo.Text := 'Cannot visualize Data Set.';
+
+  try
+    if not SetUpTempFile(LTempFilePathAndName) then
+    begin
+      Exit;
+    end;
+
+    Evaluate(FExpression + '.SaveToFile(''' + LTempFilePathAndName + ''')');
+    MemoExtraInfo.Text := 'Temp file saved: ' + LTempFilePathAndName;
+
+    if FileExists(LTempFilePathAndName) then
+    begin
+      ClientDataSetOutput.LoadFromFile(LTempFilePathAndName);
+      MemoExtraInfo.Text :=
+        'Record Count: ' + IntToStr(ClientDataSetOutput.RecordCount);
+    end;
+  except
+    // Suppress the Exception!
+  end;
+end;
+
+function TFrameDataSetVisualizer.SetUpTempFile(
+  out ATempFilePathAndNameToUse: string): Boolean;
+const
+  CBasicTempFileName = 'TestClientDataSet';
+  CTempFileExtension = '.xml';
+var
+  LBasicTempFilePathAndName: string;
+begin
+  ATempFilePathAndNameToUse := '';
+
+  try
+    LBasicTempFilePathAndName := IncludeTrailingPathDelimiter(TPath.GetTempPath)
+      + CBasicTempFileName + CTempFileExtension;
+
+    if CanDeleteFileIfExists(LBasicTempFilePathAndName) then
+    begin
+      ATempFilePathAndNameToUse := LBasicTempFilePathAndName;
+    end
+    else
+    begin
+      ATempFilePathAndNameToUse := TPath.GetGUIDFileName + CTempFileExtension;
+    end;
+
+    Result := ATempFilePathAndNameToUse <> '';
+  except
+    on E: Exception do
+    begin
+      Result := False;
+    end;
+  end;
+end;
+
+function TFrameDataSetVisualizer.CanDeleteFileIfExists(
+  const AFilePathAndName: string): Boolean;
+var
+  LCanDelete: Boolean;
+  LNotExist: Boolean;
+begin
+  try
+    if not FileExists(AFilePathAndName) then
+    begin
+      Result := True;
+      Exit;
+    end;
+
+    LCanDelete := DeleteFile(AFilePathAndName);
+    LNotExist := not FileExists (AFilePathAndName);
+    Result := LCanDelete and LNotExist;
+  except
+    on E: Exception do
+    begin
+      Result := False;
+    end;
+  end;
 end;
 
 procedure TFrameDataSetVisualizer.AfterSave;
@@ -344,7 +424,7 @@ procedure TFrameDataSetVisualizer.RefreshVisualizer(const Expression, TypeName,
   EvalResult: string);
 begin
   FAvailableState := asAvailable;
-  AddStringListItems(Expression, TypeName, EvalResult);
+  DisplayDataSet(Expression, TypeName, EvalResult);
 end;
 
 procedure TFrameDataSetVisualizer.SetClosedCallback(
